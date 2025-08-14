@@ -1,0 +1,7 @@
+# Email Automation Requirements
+pywin32>=306
+# Note: pywin32 is Windows-only, for cross-platform testing use mock objects
+
+# Optional dependencies for enhanced functionality
+# python-dateutil>=2.8.0  # Enhanced date parsing
+# packaging>=21.0         # Version management utilities
