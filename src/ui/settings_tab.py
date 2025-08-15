@@ -4,9 +4,10 @@ Contains all configuration options and folder selection.
 """
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext
+from tkinter import ttk, scrolledtext, messagebox
 from typing import Dict, Any, Optional
 from datetime import datetime
+from ..core.scheduler import UserLevelScheduler, AutomationSetupDialog
 
 
 class SettingsTab:
@@ -19,6 +20,9 @@ class SettingsTab:
         self.outlook_manager = outlook_manager
         self.colors = colors
         self.main_tab = None
+        
+        # Initialize scheduler
+        self.scheduler = UserLevelScheduler(config_manager)
         
         # Create main frame
         self.frame = tk.Frame(parent, bg=colors['bg'])
@@ -50,6 +54,9 @@ class SettingsTab:
         
         # Provider Settings Card
         self.create_provider_settings()
+        
+        # Automation Settings Card
+        self.create_automation_settings()
         
         # Auto-run option
         self.create_auto_run_option()
@@ -245,6 +252,187 @@ class SettingsTab:
         
         ttk.Button(provider_btn_frame, text="🔍 Auto-Detect", command=self.auto_detect_providers).pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(provider_btn_frame, text="🗑️ Clear", command=self.clear_providers).pack(side=tk.LEFT)
+    
+    def create_automation_settings(self):
+        """Create automation settings card"""
+        automation_card = ttk.Frame(self.settings_container, style='Card.TFrame')
+        automation_card.pack(fill=tk.X, pady=(0, 15))
+        
+        automation_inner = tk.Frame(automation_card, bg=self.colors['card'])
+        automation_inner.pack(fill=tk.X, padx=15, pady=15)
+        
+        ttk.Label(automation_inner, text="🤖 Auto-Extraction", style='Subheading.TLabel').pack(anchor=tk.W, pady=(0, 10))
+        
+        # Status display
+        status_frame = tk.Frame(automation_inner, bg=self.colors['card'])
+        status_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        self.automation_status_label = tk.Label(status_frame, 
+                                               text=self.get_automation_status(),
+                                               font=('Segoe UI', 10),
+                                               bg=self.colors['card'],
+                                               fg=self.colors['text'])
+        self.automation_status_label.pack(anchor=tk.W)
+        
+        self.next_action_label = tk.Label(status_frame,
+                                         text=self.get_next_action_text(),
+                                         font=('Segoe UI', 9),
+                                         bg=self.colors['card'],
+                                         fg=self.colors['text_secondary'])
+        self.next_action_label.pack(anchor=tk.W, pady=(2, 0))
+        
+        # Control buttons
+        button_frame = tk.Frame(automation_inner, bg=self.colors['card'])
+        button_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        if self.config_manager.get('automation_enabled', False):
+            # Show disable and settings buttons
+            ttk.Button(button_frame, text="⚙️ Change Settings", 
+                      command=self.setup_automation).pack(side=tk.LEFT, padx=(0, 10))
+            ttk.Button(button_frame, text="❌ Disable Auto-Extraction", 
+                      command=self.disable_automation).pack(side=tk.LEFT)
+        else:
+            # Show main setup button
+            setup_btn = ttk.Button(button_frame, text="🚀 Enable Auto-Extraction", 
+                                 command=self.setup_automation,
+                                 style='Primary.TButton')
+            setup_btn.pack(side=tk.LEFT)
+    
+    def get_automation_status(self) -> str:
+        """Get automation status text"""
+        if self.config_manager.get('automation_enabled', False):
+            schedule_time = self.config_manager.get('schedule_time', '09:00')
+            schedule_days = self.config_manager.get('schedule_days', [])
+            
+            if len(schedule_days) == 7:
+                days_text = "Daily"
+            elif len(schedule_days) == 5 and all(day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] for day in schedule_days):
+                days_text = "Weekdays"
+            else:
+                days_text = f"{len(schedule_days)} days/week"
+            
+            return f"✅ Auto-extraction: ON ({days_text} at {schedule_time})"
+        else:
+            return "⚪ Auto-extraction: OFF"
+    
+    def get_next_action_text(self) -> str:
+        """Get next action text"""
+        if self.config_manager.get('automation_enabled', False):
+            return f"Next: {self.scheduler.get_next_scheduled_action()}"
+        else:
+            return "Click 'Enable Auto-Extraction' to set up scheduled runs"
+    
+    def setup_automation(self):
+        """Show automation setup dialog"""
+        try:
+            # Show setup dialog
+            setup_dialog = AutomationSetupDialog(self.parent)
+            
+            # Wait for dialog to complete
+            self.parent.wait_window(setup_dialog.dialog)
+            
+            if setup_dialog.result:
+                settings = setup_dialog.get_settings()
+                
+                # Perform one-click setup
+                success = self.scheduler.one_click_setup(
+                    settings['schedule_time'],
+                    settings['schedule_days'],
+                    settings['show_notifications']
+                )
+                
+                if success:
+                    # Update UI
+                    self.update_automation_display()
+                    
+                    messagebox.showinfo("✅ Success!", 
+                        "Auto-extraction is now enabled!\n\n"
+                        "The system will:\n"
+                        "• Check daily when you log in\n"
+                        "• Notify you when extraction is ready\n"
+                        "• Handle missed runs automatically\n\n"
+                        "You can change these settings anytime.")
+                    
+                    if self.main_tab:
+                        self.main_tab.log_message("✅ Auto-extraction enabled successfully!", "SUCCESS")
+                else:
+                    messagebox.showerror("Setup Failed", 
+                        "Could not enable automation. Check permissions and try again.")
+                    
+                    if self.main_tab:
+                        self.main_tab.log_message("❌ Auto-extraction setup failed", "ERROR")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Setup failed: {str(e)}")
+            if self.main_tab:
+                self.main_tab.log_message(f"❌ Automation setup error: {str(e)}", "ERROR")
+    
+    def disable_automation(self):
+        """Disable automation"""
+        if messagebox.askyesno("Disable Auto-Extraction", 
+                              "Stop automatic email extraction?\n\nThis will remove all scheduled tasks and startup integration."):
+            try:
+                success = self.scheduler.disable_automation()
+                
+                if success:
+                    self.update_automation_display()
+                    messagebox.showinfo("✅ Disabled", "Auto-extraction has been disabled successfully.")
+                    
+                    if self.main_tab:
+                        self.main_tab.log_message("✅ Auto-extraction disabled", "SUCCESS")
+                else:
+                    messagebox.showerror("Error", "Could not fully disable automation. Some components may remain.")
+                    
+                    if self.main_tab:
+                        self.main_tab.log_message("⚠️ Automation disable incomplete", "WARNING")
+                        
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to disable automation: {str(e)}")
+                if self.main_tab:
+                    self.main_tab.log_message(f"❌ Disable automation error: {str(e)}", "ERROR")
+    
+    def update_automation_display(self):
+        """Update automation status display"""
+        try:
+            # Recreate the automation settings section to reflect current state
+            # Find and destroy the current automation card
+            for widget in self.settings_container.winfo_children():
+                if isinstance(widget, ttk.Frame):
+                    # Check if this is the automation card by looking for the automation label
+                    for child in widget.winfo_children():
+                        if isinstance(child, tk.Frame):
+                            for grandchild in child.winfo_children():
+                                if (isinstance(grandchild, ttk.Label) and 
+                                    hasattr(grandchild, 'cget') and
+                                    "🤖 Auto-Extraction" in str(grandchild.cget('text'))):
+                                    widget.destroy()
+                                    break
+            
+            # Recreate automation settings
+            self.create_automation_settings()
+            
+        except Exception as e:
+            print(f"Error updating automation display: {e}")
+    
+    def check_automation_status_on_startup(self):
+        """Check if automation should run on startup"""
+        try:
+            if self.scheduler.should_run_extraction():
+                if self.config_manager.get('show_notifications', True):
+                    # Show notification that extraction is ready
+                    self.show_extraction_ready_notification()
+                    
+        except Exception as e:
+            if self.main_tab:
+                self.main_tab.log_message(f"Startup automation check failed: {str(e)}", "WARNING")
+    
+    def show_extraction_ready_notification(self):
+        """Show notification that extraction is ready to run"""
+        result = messagebox.askyesno("📧 Auto-Extraction Ready", 
+                                    "Scheduled email extraction is ready to run.\n\n"
+                                    "Run extraction now?")
+        if result and self.main_tab:
+            self.main_tab.run_extraction()
     
     def create_auto_run_option(self):
         """Create auto-run option"""
