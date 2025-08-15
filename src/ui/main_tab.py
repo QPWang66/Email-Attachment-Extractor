@@ -73,6 +73,12 @@ class MainTab:
         self.keyword_entry.pack(side=tk.LEFT, padx=(10, 0))
         self.keyword_entry.insert(0, self.config_manager.get('keyword', 'report'))
         
+        # Auto-save keyword when changed
+        def on_keyword_change(*args):
+            self.config_manager.set('keyword', self.keyword_entry.get())
+        
+        self.keyword_entry.bind('<KeyRelease>', on_keyword_change)
+        
         # Folder selection
         folder_frame = tk.Frame(settings_inner, bg=self.colors['card'])
         folder_frame.pack(fill=tk.X, pady=5)
@@ -187,40 +193,52 @@ class MainTab:
                 self.progress_bar.start()
                 self.extract_btn.config(state='disabled', text="⏳ Extracting...")
                 
-                # Get settings
+                # Get settings from UI directly (not from saved config)
                 keyword = self.keyword_entry.get()
-                days = self.config_manager.get('days', 7)
-                selected_folders = self.config_manager.get('selected_folders', ['Inbox'])
+                save_folder = self.folder_path.get()
                 
                 if not keyword:
                     self.log_message("Please enter a search keyword", "ERROR")
                     return
                 
-                # Update config with current values
-                self.config_manager.update({
-                    'keyword': keyword,
-                    'folder': self.folder_path.get()
-                })
+                if not save_folder:
+                    self.log_message("Please select a save folder", "ERROR")
+                    return
+                
+                # Get current settings from UI (not saved config)
+                if self.settings_tab:
+                    settings = self.settings_tab.get_current_settings()
+                    days = settings['days']
+                    selected_folders = settings['selected_folders']
+                    naming_format = settings['naming_format']
+                    custom_suffix = settings['custom_suffix']
+                    extraction_mode = settings['extraction_mode']
+                    providers_text = settings['providers']
+                else:
+                    # Fallback to saved config if settings tab not available
+                    days = self.config_manager.get('days', 7)
+                    selected_folders = self.config_manager.get('selected_folders', ['Inbox'])
+                    naming_format = self.config_manager.get('naming_format', 'date')
+                    custom_suffix = self.config_manager.get('custom_suffix', '')
+                    extraction_mode = self.config_manager.get('extraction_mode', 'all')
+                    providers_text = self.config_manager.get('providers', '')
+                
+                self.log_message(f"Using settings: {days} days, {len(selected_folders)} folders, {extraction_mode} mode", "INFO")
                 
                 # Get messages
                 messages = self.outlook_manager.get_messages_from_folders(
-                    selected_folders, days, keyword
+                    selected_folders, days, keyword, providers_text
                 )
                 
                 if not messages:
                     self.log_message("No matching messages found", "WARNING")
                     return
                 
-                # Process messages (placeholder for attachment saving logic)
+                # Process messages
                 self.log_message(f"Found {len(messages)} matching messages", "SUCCESS")
                 
-                # Save attachments
-                save_folder = self.folder_path.get()
-                naming_format = self.config_manager.get('naming_format', 'date')
-                custom_suffix = self.config_manager.get('custom_suffix', '')
-                
                 saved_files = self.outlook_manager.save_attachments(
-                    messages, save_folder, naming_format, custom_suffix
+                    messages, save_folder, naming_format, custom_suffix, extraction_mode
                 )
                 
                 self.log_message(f"Extraction completed! Saved {len(saved_files)} files", "SUCCESS")

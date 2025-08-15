@@ -6,6 +6,7 @@ Contains all configuration options and folder selection.
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 from typing import Dict, Any, Optional
+from datetime import datetime
 
 
 class SettingsTab:
@@ -28,6 +29,7 @@ class SettingsTab:
         self.auto_run_var = tk.BooleanVar(value=self.config_manager.get('auto_run', False))
         self.naming_format = tk.StringVar(value=self.config_manager.get('naming_format', 'date'))
         self.custom_suffix_var = tk.StringVar(value=self.config_manager.get('custom_suffix', ''))
+        self.extraction_mode = tk.StringVar(value=self.config_manager.get('extraction_mode', 'all'))
         
         # Setup UI
         self.setup_ui()
@@ -54,6 +56,9 @@ class SettingsTab:
         
         # Save button
         self.create_save_button()
+        
+        # Initialize visibility
+        self.toggle_naming_format()
     
     def create_scrollable_container(self):
         """Create scrollable container for settings"""
@@ -134,6 +139,11 @@ class SettingsTab:
         discover_btn = ttk.Button(discover_frame, text="🔍 Discover Folders", command=self.discover_folders)
         discover_btn.pack(side=tk.LEFT)
         
+        # Selected folders info label
+        self.selected_folders_label = tk.Label(folder_inner, text="", font=('Segoe UI', 9),
+                                              bg=self.colors['card'], fg=self.colors['success'], wraplength=600)
+        self.selected_folders_label.pack(anchor=tk.W, pady=(5, 0))
+        
         # Folder selection area
         self.folder_selection_frame = tk.Frame(folder_inner, bg=self.colors['card'])
         self.folder_selection_frame.pack(fill=tk.X, pady=(10, 0))
@@ -149,22 +159,58 @@ class SettingsTab:
         naming_inner = tk.Frame(naming_card, bg=self.colors['card'])
         naming_inner.pack(fill=tk.X, padx=15, pady=15)
         
-        ttk.Label(naming_inner, text="📝 File Naming", style='Subheading.TLabel').pack(anchor=tk.W, pady=(0, 10))
+        ttk.Label(naming_inner, text="📝 File Extraction & Naming", style='Subheading.TLabel').pack(anchor=tk.W, pady=(0, 10))
         
-        # Naming format options
-        format_frame = tk.Frame(naming_inner, bg=self.colors['card'])
+        # Extraction mode options
+        mode_frame = tk.Frame(naming_inner, bg=self.colors['card'])
+        mode_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(mode_frame, text="Extraction Mode:", font=('Segoe UI', 10, 'bold'),
+                bg=self.colors['card'], fg=self.colors['text']).pack(anchor=tk.W, pady=(0, 5))
+        
+        all_radio = tk.Radiobutton(mode_frame, text="Extract all qualified files", 
+                                  variable=self.extraction_mode, value="all",
+                                  command=self.toggle_naming_format,
+                                  bg=self.colors['card'], fg=self.colors['text'],
+                                  font=('Segoe UI', 10), anchor='w',
+                                  selectcolor=self.colors['card'], relief='flat',
+                                  wraplength=500)
+        all_radio.pack(anchor=tk.W, fill=tk.X, pady=2)
+        
+        latest_radio = tk.Radiobutton(mode_frame, text="Extract only latest file per type", 
+                                    variable=self.extraction_mode, value="latest",
+                                    command=self.toggle_naming_format,
+                                    bg=self.colors['card'], fg=self.colors['text'],
+                                    font=('Segoe UI', 10), anchor='w',
+                                    selectcolor=self.colors['card'], relief='flat',
+                                    wraplength=500)
+        latest_radio.pack(anchor=tk.W, fill=tk.X, pady=2)
+        
+        # Separator
+        separator = ttk.Separator(naming_inner, orient='horizontal')
+        separator.pack(fill=tk.X, pady=(15, 10))
+        
+        # Naming format options (only for latest mode)
+        self.naming_format_frame = tk.Frame(naming_inner, bg=self.colors['card'])
+        
+        tk.Label(self.naming_format_frame, text="File Naming Format (Latest Mode Only):", font=('Segoe UI', 10, 'bold'),
+                bg=self.colors['card'], fg=self.colors['text']).pack(anchor=tk.W, pady=(0, 5))
+        
+        format_frame = tk.Frame(self.naming_format_frame, bg=self.colors['card'])
         format_frame.pack(fill=tk.X, pady=5)
         
-        ttk.Radiobutton(format_frame, text="Use current date (YYYY-MM-DD)", 
-                       variable=self.naming_format, value="date").pack(anchor=tk.W)
-        ttk.Radiobutton(format_frame, text="Use current year (YYYY)", 
-                       variable=self.naming_format, value="year").pack(anchor=tk.W)
+        ttk.Radiobutton(format_frame, text="Use message received date (YYYY-MM-DD)", 
+                       variable=self.naming_format, value="date").pack(anchor=tk.W, padx=(10, 0))
+        ttk.Radiobutton(format_frame, text="Use message received year (YYYY)", 
+                       variable=self.naming_format, value="year").pack(anchor=tk.W, padx=(10, 0))
+        ttk.Radiobutton(format_frame, text="Keep original filename", 
+                       variable=self.naming_format, value="original").pack(anchor=tk.W, padx=(10, 0))
         ttk.Radiobutton(format_frame, text="Custom suffix", 
                        variable=self.naming_format, value="custom",
-                       command=self.toggle_custom_suffix).pack(anchor=tk.W)
+                       command=self.toggle_custom_suffix).pack(anchor=tk.W, padx=(10, 0))
         
         # Custom suffix entry (initially hidden)
-        self.custom_suffix_frame = tk.Frame(naming_inner, bg=self.colors['card'])
+        self.custom_suffix_frame = tk.Frame(self.naming_format_frame, bg=self.colors['card'])
         
         tk.Label(self.custom_suffix_frame, text="Custom suffix:", font=('Segoe UI', 10),
                 bg=self.colors['card'], fg=self.colors['text']).pack(side=tk.LEFT)
@@ -189,6 +235,10 @@ class SettingsTab:
                                                        bg=self.colors['card'], fg=self.colors['text'])
         self.providers_text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
+        # Add example text if empty
+        if not self.providers_text.get(1.0, tk.END).strip():
+            self.providers_text.insert(1.0, "# Enter service providers (one per line)\n# Format: email@example.com = prefix\n# Example:\n# client1@companyA.com = A\n")
+        
         # Provider buttons
         provider_btn_frame = tk.Frame(providers_inner, bg=self.colors['card'])
         provider_btn_frame.pack(fill=tk.X)
@@ -205,11 +255,14 @@ class SettingsTab:
                        variable=self.auto_run_var).pack(anchor=tk.W)
     
     def create_save_button(self):
-        """Create save button"""
+        """Create save and action buttons"""
         save_frame = tk.Frame(self.settings_container, bg=self.colors['bg'])
         save_frame.pack(fill=tk.X, pady=(20, 0))
         
         ttk.Button(save_frame, text="💾 Save Settings", command=self.save_settings, 
+                  style='Primary.TButton').pack(side=tk.LEFT, padx=(0, 10))
+        
+        ttk.Button(save_frame, text="🚀 Save & Run Extraction", command=self.save_and_run, 
                   style='Primary.TButton').pack(side=tk.LEFT)
     
     def set_main_tab(self, main_tab):
@@ -289,21 +342,51 @@ class SettingsTab:
             )
             checkbox.pack(anchor=tk.W, padx=(20, 0), pady=2)
             self.folder_checkboxes[folder_name] = var
+        
+        # Update display after creating all checkboxes
+        self.update_selected_folders_display()
     
     def update_folder_checkboxes(self, folders: Dict[str, Any]):
         """Update folder checkboxes with discovered folders"""
         self.outlook_manager.folders = folders
         self.create_folder_checkboxes()
+        # Load saved folder selections after creating checkboxes
+        self.load_saved_settings()
     
     def update_selected_folders(self):
-        """Update the list of selected folders"""
+        """Update the list of selected folders (for UI validation only)"""
         selected_folders = [folder for folder, var in self.folder_checkboxes.items() if var.get()]
         if not selected_folders:
-            selected_folders = ["Inbox"]
+            # Ensure at least Inbox is selected
             if "Inbox" in self.folder_checkboxes:
                 self.folder_checkboxes["Inbox"].set(True)
+                selected_folders = ["Inbox"]
         
-        self.config_manager.set('selected_folders', selected_folders)
+        # Update the display label
+        self.update_selected_folders_display(selected_folders)
+        
+        # Don't automatically save to config - let user decide when to save
+    
+    def update_selected_folders_display(self, selected_folders=None):
+        """Update the selected folders display label"""
+        if selected_folders is None:
+            selected_folders = [folder for folder, var in self.folder_checkboxes.items() if var.get()]
+        
+        if selected_folders:
+            if len(selected_folders) <= 3:
+                folder_text = ", ".join(selected_folders)
+            else:
+                folder_text = f"{', '.join(selected_folders[:2])} and {len(selected_folders)-2} more"
+            
+            self.selected_folders_label.config(
+                text=f"✅ Selected folders ({len(selected_folders)}): {folder_text}",
+                fg=self.colors['success']
+            )
+        else:
+            self.selected_folders_label.config(
+                text="⚠️ No folders selected - will use Inbox as default",
+                fg=self.colors['warning']
+            )
     
     def toggle_custom_suffix(self):
         """Toggle visibility of custom suffix entry"""
@@ -312,45 +395,137 @@ class SettingsTab:
         else:
             self.custom_suffix_frame.pack_forget()
     
+    def toggle_naming_format(self):
+        """Toggle visibility of naming format options based on extraction mode"""
+        if self.extraction_mode.get() == "latest":
+            self.naming_format_frame.pack(fill=tk.X, pady=(0, 10))
+        else:
+            self.naming_format_frame.pack_forget()
+    
     def clear_providers(self):
         """Clear all providers"""
         self.providers_text.delete(1.0, tk.END)
-        self.providers_text.insert(1.0, "# Enter service providers (one per line)\\n# Format: email@example.com = Provider Name\\n# Or: Subject keyword = Provider Name\\n")
+        self.providers_text.insert(1.0, "# Enter service providers (one per line)\n# Format: email@example.com = prefix\n# Example:\n# client1@companyA.com = A\n")
     
     def auto_detect_providers(self):
         """Auto-detect providers (placeholder)"""
         if self.main_tab:
             self.main_tab.log_message("Auto-detection feature coming soon!", "INFO")
     
-    def save_settings(self):
-        """Save current settings"""
-        self.update_selected_folders()
+    def get_current_settings(self):
+        """Get current settings from UI components"""
+        selected_folders = [folder for folder, var in self.folder_checkboxes.items() if var.get()]
+        if not selected_folders:
+            selected_folders = ["Inbox"]
         
-        # Update configuration
-        self.config_manager.update({
+        return {
+            'days': self.days_var.get(),
+            'selected_folders': selected_folders,
+            'naming_format': self.naming_format.get(),
+            'custom_suffix': self.custom_suffix_var.get(),
+            'extraction_mode': self.extraction_mode.get(),
+            'providers': self.providers_text.get(1.0, "end-1c"),
+            'auto_run': self.auto_run_var.get()
+        }
+    
+    def save_settings(self):
+        """Save current UI settings to config file (for persistence only)"""
+        # Get current folder selections
+        selected_folders = [folder for folder, var in self.folder_checkboxes.items() if var.get()]
+        if not selected_folders:
+            selected_folders = ["Inbox"]
+        
+        # Update configuration with current UI values (complete settings)
+        config_data = {
             'days': self.days_var.get(),
             'auto_run': self.auto_run_var.get(),
             'naming_format': self.naming_format.get(),
             'custom_suffix': self.custom_suffix_var.get(),
-            'providers': self.providers_text.get(1.0, tk.END)
-        })
+            'extraction_mode': self.extraction_mode.get(),
+            'selected_folders': selected_folders,
+            'providers': self.providers_text.get(1.0, tk.END),
+            'discovered_folders': list(self.outlook_manager.folders.keys()) if self.outlook_manager.folders else [],
+            'last_saved': datetime.now().isoformat(),
+            'version': '1.0'
+        }
+        
+        self.config_manager.update(config_data)
         
         # Save to file
         if self.config_manager.save_config():
             if self.main_tab:
-                self.main_tab.log_message("Settings saved successfully!", "SUCCESS")
+                self.main_tab.log_message("Settings saved to file successfully! (Runtime settings use current UI values)", "SUCCESS")
+            return True
         else:
             if self.main_tab:
-                self.main_tab.log_message("Error saving settings!", "ERROR")
+                self.main_tab.log_message("Error saving settings to file!", "ERROR")
+            return False
+    
+    def save_and_run(self):
+        """Save settings and automatically run extraction"""
+        try:
+            # First, save settings
+            if not self.save_settings():
+                return
+            
+            # Validate required settings
+            providers_text = self.providers_text.get(1.0, "end-1c").strip()
+            if not providers_text:
+                if self.main_tab:
+                    self.main_tab.log_message("⚠️  Please configure service providers before running extraction", "ERROR")
+                return
+            
+            # Check if we have any selected folders
+            selected_folders = [folder for folder, var in self.folder_checkboxes.items() if var.get()]
+            if not selected_folders:
+                if self.main_tab:
+                    self.main_tab.log_message("⚠️  Please select at least one folder to search", "ERROR")
+                return
+            
+            # Test connection first
+            if self.main_tab:
+                self.main_tab.log_message("🔗 Testing Outlook connection before extraction...", "INFO")
+                
+            if not self.outlook_manager.test_connection():
+                if self.main_tab:
+                    self.main_tab.log_message("❌ Connection failed! Cannot run extraction.", "ERROR")
+                return
+            
+            # Trigger extraction in main tab
+            if self.main_tab:
+                self.main_tab.log_message("✅ Connection verified! Starting extraction...", "SUCCESS")
+                self.main_tab.run_extraction()
+            
+        except Exception as e:
+            if self.main_tab:
+                self.main_tab.log_message(f"Error in save and run: {str(e)}", "ERROR")
     
     def load_saved_settings(self):
         """Load and apply saved settings to UI"""
         try:
             # Load providers text
             providers_text = self.config_manager.get('providers', '')
-            if providers_text:
+            if providers_text and providers_text.strip():
                 self.providers_text.delete(1.0, tk.END)
                 self.providers_text.insert(1.0, providers_text)
+            
+            # Load saved folder selections
+            saved_folders = self.config_manager.get('selected_folders', [])
+            if saved_folders and self.folder_checkboxes:
+                # First, uncheck all
+                for var in self.folder_checkboxes.values():
+                    var.set(False)
+                
+                # Then check the saved ones
+                for folder_name in saved_folders:
+                    if folder_name in self.folder_checkboxes:
+                        self.folder_checkboxes[folder_name].set(True)
+                
+                # Update the display
+                self.update_selected_folders_display(saved_folders)
+                        
+                if self.main_tab:
+                    self.main_tab.log_message(f"✅ Loaded {len(saved_folders)} saved folder selections", "SUCCESS")
             
             # Show custom suffix field if needed
             if self.config_manager.get('naming_format') == 'custom':

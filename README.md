@@ -1,40 +1,26 @@
 # Email Attachment Extractor
 
-> **Professional email automation tool for extracting attachments from Microsoft Outlook**
+> **Automated email attachment extraction tool for Microsoft Outlook**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Windows](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
 
-A modern, modular application that automates the extraction of email attachments from Microsoft Outlook. Built with a clean architecture, responsive UI, and enterprise-grade features for handling large-scale email processing tasks.
+A desktop application that automates the extraction of document attachments from Microsoft Outlook emails. Features smart filtering by sender, keyword search, and organized file management with a modern, user-friendly interface.
 
-**Current Limitations**: This version is designed for classic Microsoft Outlook on Windows using COM automation. We actively seek contributions to extend support to newer Outlook versions (Office 365, Outlook for Web) and macOS platforms.
+**Platform**: Windows with Microsoft Outlook (COM automation). Contributions welcome for additional platforms and email clients.
 
 ## Features
 
-### Core Capabilities
-- **Multi-Folder Search**: Discover and search across all Outlook folders
-- **Smart Filtering**: Advanced filtering by keywords, date ranges, and providers
-- **Batch Processing**: Handle hundreds of emails efficiently with progress tracking
-- **Automatic Organization**: Organize extracted files by date, provider, or category
-
-### Advanced Folder Management
-- **Dynamic Discovery**: Automatically detect all available Outlook folders
-- **Flexible Selection**: Multi-select interface with persistent preferences
-- **Nested Support**: Handle complex folder hierarchies seamlessly
-- **Real-time Updates**: Live folder discovery with background processing
-
-### Professional Configuration
-- **Provider Mapping**: Configure custom email provider rules and patterns
-- **File Naming**: Multiple naming conventions (date-based, year-based, custom)
-- **Automated Workflows**: Optional auto-execution on application startup
-- **Backup System**: Built-in backup and recovery for extracted files
-
-### Modern Interface
-- **Responsive Design**: Adaptive UI that scales with window resizing
-- **Professional Styling**: Clean, modern interface with intuitive navigation
-- **Real-time Feedback**: Live progress tracking and comprehensive logging
-- **Error Handling**: Graceful error recovery with detailed diagnostic information
+- **Multi-Folder Search**: Discover and search across all Outlook folders including shared mailboxes
+- **Smart Filtering**: Filter emails by keywords, date ranges, and sender providers
+- **Extraction Modes**: Extract all files with dates, or latest files only per type
+- **Provider-Based Naming**: Automatically name files using sender-based prefixes (e.g., `client2025.pdf`)
+- **Flexible Date Ranges**: Search emails from last 7 days, 30 days, or custom timeframes
+- **Persistent Settings**: Save configurations including folder selections and provider mappings
+- **Document Focus**: Extracts only actual documents (PDF, Office files) while filtering out embedded images
+- **Real-time Progress**: Live activity logging with detailed extraction statistics
+- **One-Click Operation**: Save settings and run extraction in a single action
 
 ## Requirements
 
