@@ -147,7 +147,7 @@ class EmailProcessor:
         return filename
     
     def convert_file_format(self, source_path: str, target_format: str) -> Optional[str]:
-        """Convert file to target format by changing extension (brute force approach)"""
+        """Convert file to target format with data integrity for Excel/CSV"""
         try:
             source_file = Path(source_path)
             if not source_file.exists():
@@ -155,6 +155,7 @@ class EmailProcessor:
                 
             # Get filename without extension
             base_name = source_file.stem
+            source_ext = source_file.suffix.lower()
             
             # Clean target format (remove dots if user added them)
             clean_format = target_format.lower().strip('.').strip()
@@ -164,13 +165,72 @@ class EmailProcessor:
             # Create target filename with new extension
             target_path = source_file.parent / f"{base_name}.{clean_format}"
             
-            # Simple rename - brute force approach
-            os.rename(source_path, str(target_path))
-            return str(target_path)
+            # Use proper conversion for Excel/CSV to preserve data integrity
+            if self._needs_data_conversion(source_ext, clean_format):
+                return self._convert_with_data_integrity(source_path, str(target_path), source_ext, clean_format)
+            else:
+                # Simple rename for other formats (brute force approach)
+                os.rename(source_path, str(target_path))
+                return str(target_path)
                 
         except Exception as e:
             print(f"Error converting file {source_path}: {e}")
             return source_path  # Return original if conversion fails
+    
+    def _needs_data_conversion(self, source_ext: str, target_ext: str) -> bool:
+        """Check if conversion needs data integrity preservation"""
+        excel_formats = ['.xlsx', '.xls']
+        csv_formats = ['csv']
+        
+        # Need proper conversion if going between Excel and CSV
+        return ((source_ext in excel_formats and target_ext in csv_formats) or 
+                (source_ext == '.csv' and target_ext in ['xlsx', 'xls']))
+    
+    def _convert_with_data_integrity(self, source_path: str, target_path: str, 
+                                   source_ext: str, target_ext: str) -> str:
+        """Convert files with data integrity using pandas"""
+        try:
+            import pandas as pd
+            
+            # Read source file
+            if source_ext in ['.xlsx', '.xls']:
+                # Read Excel file
+                df = pd.read_excel(source_path, engine='openpyxl' if source_ext == '.xlsx' else None)
+            elif source_ext == '.csv':
+                # Read CSV file
+                df = pd.read_csv(source_path)
+            else:
+                # Fallback to brute force for unsupported source formats
+                os.rename(source_path, target_path)
+                return target_path
+            
+            # Write to target format
+            if target_ext == 'csv':
+                df.to_csv(target_path, index=False)
+            elif target_ext in ['xlsx', 'xls']:
+                df.to_excel(target_path, index=False, engine='openpyxl' if target_ext == 'xlsx' else None)
+            else:
+                # Fallback to brute force for unsupported target formats
+                os.rename(source_path, target_path)
+                return target_path
+            
+            # Remove original file after successful conversion
+            os.remove(source_path)
+            return target_path
+            
+        except ImportError:
+            print("pandas/openpyxl not available for Excel/CSV conversion, using brute force")
+            # Fallback to brute force rename
+            os.rename(source_path, target_path)
+            return target_path
+        except Exception as e:
+            print(f"Data conversion failed: {e}, using brute force")
+            # Fallback to brute force rename
+            try:
+                os.rename(source_path, target_path)
+                return target_path
+            except:
+                return source_path
 
 
 class ReportAnalyzer:
