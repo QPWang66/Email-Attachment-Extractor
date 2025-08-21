@@ -10,6 +10,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Callable, Any, Optional
 from dataclasses import dataclass
+from ..utils.email_processor import EmailProcessor
 
 
 @dataclass
@@ -497,7 +498,9 @@ class OutlookManager:
                         save_folder: str,
                         file_naming_format: str = "date",
                         custom_suffix: str = "",
-                        extraction_mode: str = "all") -> Dict[str, str]:
+                        extraction_mode: str = "all",
+                        conversion_enabled: bool = False,
+                        convert_to_format: str = "") -> Dict[str, str]:
         """Save attachments from messages"""
         saved_files = {}
         
@@ -649,7 +652,22 @@ class OutlookManager:
                             
                             # Save the attachment
                             attachment.SaveAsFile(full_path)
-                            saved_files[final_filename] = full_path
+                            
+                            # Apply file conversion if enabled
+                            final_saved_path = full_path
+                            if conversion_enabled and convert_to_format:
+                                try:
+                                    processor = EmailProcessor()
+                                    converted_path = processor.convert_file_format(full_path, convert_to_format)
+                                    if converted_path and converted_path != full_path:
+                                        final_saved_path = converted_path
+                                        # Update the final filename to reflect the new extension
+                                        final_filename = os.path.basename(converted_path)
+                                        self._log(f"Converted to {convert_to_format.upper()}: {final_filename}", "INFO")
+                                except Exception as e:
+                                    self._log(f"Conversion failed for {final_filename}: {e}", "WARNING")
+                            
+                            saved_files[final_filename] = final_saved_path
                             
                             mode_text = "latest" if extraction_mode == "latest" else "all"
                             self._log(f"Saved attachment ({mode_text} mode): {final_filename}", "SUCCESS")

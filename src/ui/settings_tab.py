@@ -34,6 +34,9 @@ class SettingsTab:
         self.naming_format = tk.StringVar(value=self.config_manager.get('naming_format', 'date'))
         self.custom_suffix_var = tk.StringVar(value=self.config_manager.get('custom_suffix', ''))
         self.extraction_mode = tk.StringVar(value=self.config_manager.get('extraction_mode', 'all'))
+        self.conversion_enabled_var = tk.BooleanVar(value=self.config_manager.get('conversion_enabled', False))
+        self.convert_format_var = tk.StringVar(value=self.config_manager.get('convert_all_to_format', 'csv'))
+        self.custom_format_var = tk.StringVar(value=self.config_manager.get('custom_format_extension', 'xlsx'))
         
         # Setup UI
         self.setup_ui()
@@ -51,6 +54,9 @@ class SettingsTab:
         
         # File Naming Card
         self.create_file_naming()
+        
+        # File Conversion Card
+        self.create_file_conversion()
         
         # Provider Settings Card
         self.create_provider_settings()
@@ -225,6 +231,56 @@ class SettingsTab:
         custom_entry = tk.Entry(self.custom_suffix_frame, textvariable=self.custom_suffix_var,
                                width=20, font=('Segoe UI', 10))
         custom_entry.pack(side=tk.LEFT, padx=(10, 0))
+    
+    def create_file_conversion(self):
+        """Create file conversion settings card"""
+        conversion_card = ttk.Frame(self.settings_container, style='Card.TFrame')
+        conversion_card.pack(fill=tk.X, pady=(0, 15))
+        
+        conversion_inner = tk.Frame(conversion_card, bg=self.colors['card'])
+        conversion_inner.pack(fill=tk.X, padx=15, pady=15)
+        
+        ttk.Label(conversion_inner, text="🔄 File Format Conversion", style='Subheading.TLabel').pack(anchor=tk.W, pady=(0, 10))
+        
+        # Enable conversion checkbox
+        conversion_check = ttk.Checkbutton(conversion_inner, 
+                                         text="Convert all downloaded files to a specific format",
+                                         variable=self.conversion_enabled_var,
+                                         command=self.toggle_conversion_options)
+        conversion_check.pack(anchor=tk.W, pady=(0, 10))
+        
+        # Conversion format selection (initially hidden)
+        self.conversion_format_frame = tk.Frame(conversion_inner, bg=self.colors['card'])
+        
+        tk.Label(self.conversion_format_frame, text="Convert all files to:", font=('Segoe UI', 10),
+                bg=self.colors['card'], fg=self.colors['text']).pack(side=tk.LEFT, padx=(20, 10))
+        
+        format_options = ['csv', 'txt', 'pdf', 'custom']
+        format_combo = ttk.Combobox(self.conversion_format_frame, textvariable=self.convert_format_var,
+                                   values=format_options, state='readonly', width=10)
+        format_combo.pack(side=tk.LEFT, padx=(0, 10))
+        format_combo.bind('<<ComboboxSelected>>', self.toggle_custom_format)
+        
+        # Custom format entry (initially hidden)
+        self.custom_format_frame = tk.Frame(self.conversion_format_frame, bg=self.colors['card'])
+        
+        tk.Label(self.custom_format_frame, text="Custom extension:", font=('Segoe UI', 9),
+                bg=self.colors['card'], fg=self.colors['text']).pack(side=tk.LEFT, padx=(10, 5))
+        
+        self.custom_format_var = tk.StringVar(value='xlsx')
+        custom_format_entry = tk.Entry(self.custom_format_frame, textvariable=self.custom_format_var,
+                                      width=8, font=('Segoe UI', 9))
+        custom_format_entry.pack(side=tk.LEFT)
+        
+        # Info text
+        info_text = "Note: Original file type filtering still applies. This converts the saved files to your chosen format."
+        info_label = tk.Label(conversion_inner, text=info_text, font=('Segoe UI', 9),
+                             fg=self.colors['text_secondary'], bg=self.colors['card'], 
+                             wraplength=600, justify=tk.LEFT)
+        info_label.pack(anchor=tk.W, pady=(10, 0))
+        
+        # Initially hide the format selection if conversion is disabled
+        self.toggle_conversion_options()
     
     def create_provider_settings(self):
         """Create provider settings card"""
@@ -590,6 +646,21 @@ class SettingsTab:
         else:
             self.naming_format_frame.pack_forget()
     
+    def toggle_conversion_options(self):
+        """Toggle visibility of conversion format options"""
+        if self.conversion_enabled_var.get():
+            self.conversion_format_frame.pack(fill=tk.X, pady=(5, 0))
+            self.toggle_custom_format()
+        else:
+            self.conversion_format_frame.pack_forget()
+    
+    def toggle_custom_format(self, event=None):
+        """Toggle visibility of custom format entry"""
+        if self.convert_format_var.get() == "custom":
+            self.custom_format_frame.pack(side=tk.LEFT, padx=(10, 0))
+        else:
+            self.custom_format_frame.pack_forget()
+    
     def clear_providers(self):
         """Clear all providers"""
         self.providers_text.delete(1.0, tk.END)
@@ -613,7 +684,10 @@ class SettingsTab:
             'custom_suffix': self.custom_suffix_var.get(),
             'extraction_mode': self.extraction_mode.get(),
             'providers': self.providers_text.get(1.0, "end-1c"),
-            'auto_run': self.auto_run_var.get()
+            'auto_run': self.auto_run_var.get(),
+            'conversion_enabled': self.conversion_enabled_var.get(),
+            'convert_all_to_format': self.convert_format_var.get(),
+            'custom_format_extension': self.custom_format_var.get()
         }
     
     def save_settings(self):
@@ -634,7 +708,10 @@ class SettingsTab:
             'providers': self.providers_text.get(1.0, tk.END),
             'discovered_folders': list(self.outlook_manager.folders.keys()) if self.outlook_manager.folders else [],
             'last_saved': datetime.now().isoformat(),
-            'version': '1.0'
+            'version': '1.0',
+            'conversion_enabled': self.conversion_enabled_var.get(),
+            'convert_all_to_format': self.convert_format_var.get(),
+            'custom_format_extension': self.custom_format_var.get()
         }
         
         self.config_manager.update(config_data)

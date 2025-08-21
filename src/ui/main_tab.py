@@ -214,6 +214,9 @@ class MainTab:
                     custom_suffix = settings['custom_suffix']
                     extraction_mode = settings['extraction_mode']
                     providers_text = settings['providers']
+                    conversion_enabled = settings.get('conversion_enabled', False)
+                    convert_to_format = settings.get('convert_all_to_format', '')
+                    custom_format = settings.get('custom_format_extension', 'xlsx')
                 else:
                     # Fallback to saved config if settings tab not available
                     days = self.config_manager.get('days', 7)
@@ -222,6 +225,9 @@ class MainTab:
                     custom_suffix = self.config_manager.get('custom_suffix', '')
                     extraction_mode = self.config_manager.get('extraction_mode', 'all')
                     providers_text = self.config_manager.get('providers', '')
+                    conversion_enabled = self.config_manager.get('conversion_enabled', False)
+                    convert_to_format = self.config_manager.get('convert_all_to_format', '')
+                    custom_format = self.config_manager.get('custom_format_extension', 'xlsx')
                 
                 self.log_message(f"Using settings: {days} days, {len(selected_folders)} folders, {extraction_mode} mode", "INFO")
                 
@@ -237,8 +243,12 @@ class MainTab:
                 # Process messages
                 self.log_message(f"Found {len(messages)} matching messages", "SUCCESS")
                 
+                # Use custom format if "custom" is selected
+                final_format = custom_format if convert_to_format == 'custom' else convert_to_format
+                
                 saved_files = self.outlook_manager.save_attachments(
-                    messages, save_folder, naming_format, custom_suffix, extraction_mode
+                    messages, save_folder, naming_format, custom_suffix, extraction_mode,
+                    conversion_enabled, final_format
                 )
                 
                 self.log_message(f"Extraction completed! Saved {len(saved_files)} files", "SUCCESS")

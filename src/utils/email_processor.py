@@ -145,6 +145,32 @@ class EmailProcessor:
             filename = name[:200-len(ext)] + ext
         
         return filename
+    
+    def convert_file_format(self, source_path: str, target_format: str) -> Optional[str]:
+        """Convert file to target format by changing extension (brute force approach)"""
+        try:
+            source_file = Path(source_path)
+            if not source_file.exists():
+                return source_path
+                
+            # Get filename without extension
+            base_name = source_file.stem
+            
+            # Clean target format (remove dots if user added them)
+            clean_format = target_format.lower().strip('.').strip()
+            if not clean_format:
+                return source_path
+            
+            # Create target filename with new extension
+            target_path = source_file.parent / f"{base_name}.{clean_format}"
+            
+            # Simple rename - brute force approach
+            os.rename(source_path, str(target_path))
+            return str(target_path)
+                
+        except Exception as e:
+            print(f"Error converting file {source_path}: {e}")
+            return source_path  # Return original if conversion fails
 
 
 class ReportAnalyzer:

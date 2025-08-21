@@ -23,7 +23,10 @@ class ConfigManager:
         'custom_suffix': '',
         'selected_folders': ['Inbox'],
         'window_geometry': '850x750',
-        'theme': 'default'
+        'theme': 'default',
+        'convert_all_to_format': '',
+        'conversion_enabled': False,
+        'custom_format_extension': 'xlsx'
     }
     
     def __init__(self, config_file: str = "email_extractor_config.json"):
